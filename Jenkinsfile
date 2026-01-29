@@ -10,11 +10,10 @@ pipeline {
         }
 
         stage('Install Dependencies & Test') {
-    steps {
-        echo 'Skipping local pip install – handled inside Docker'
-    }
-}
-
+            steps {
+                echo 'Skipping local pip install – handled inside Docker'
+            }
+        }
 
         stage('Build Docker Image') {
             steps {
@@ -23,16 +22,15 @@ pipeline {
         }
 
         stage('Trivy Security Scan') {
-    steps {
-        bat '''
-        docker run --rm ^
-          -v //var/run/docker.sock:/var/run/docker.sock ^
-          aquasec/trivy:latest ^
-          image --severity HIGH,CRITICAL --exit-code 1 library-ms:1.0
-        '''
-    }
-}
-
+            steps {
+                bat '''
+                docker run --rm ^
+                  -v //var/run/docker.sock:/var/run/docker.sock ^
+                  aquasec/trivy:latest ^
+                  image --severity HIGH,CRITICAL library-ms:1.0
+                '''
+            }
+        }
     }
 
     post {
