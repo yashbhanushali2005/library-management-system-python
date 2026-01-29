@@ -11,20 +11,20 @@ pipeline {
 
         stage('Install Dependencies & Test') {
             steps {
-                sh 'pip install -r requirements.txt'
-                sh 'pytest'
+                bat 'pip install -r requirements.txt'
+                bat 'pytest'
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t library-ms:1.0 .'
+                bat 'docker build -t library-ms:1.0 .'
             }
         }
 
         stage('Trivy Security Scan') {
             steps {
-                sh '''
+                bat '''
                 trivy image --severity HIGH,CRITICAL \
                 --exit-code 1 library-ms:1.0
                 '''
