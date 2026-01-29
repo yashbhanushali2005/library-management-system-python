@@ -20,7 +20,7 @@ pipeline {
 
         stage('Install Dependencies & Test') {
             steps {
-                sh '''
+                bat '''
                 python -m venv venv
                 . venv/bin/activate
                 pip install --upgrade pip
@@ -32,7 +32,7 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh '''
+                bat '''
                 docker build -t $IMAGE_NAME .
                 '''
             }
@@ -40,7 +40,7 @@ pipeline {
 
         stage('Trivy Security Scan') {
             steps {
-                sh '''
+                bat '''
                 apt-get update
                 apt-get install -y wget gnupg lsb-release
 
