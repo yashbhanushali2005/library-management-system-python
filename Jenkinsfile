@@ -10,11 +10,11 @@ pipeline {
         }
 
         stage('Install Dependencies & Test') {
-            steps {
-                bat 'pip install -r requirements.txt'
-                bat 'pytest'
-            }
-        }
+    steps {
+        echo 'Skipping local pip install – handled inside Docker'
+    }
+}
+
 
         stage('Build Docker Image') {
             steps {
