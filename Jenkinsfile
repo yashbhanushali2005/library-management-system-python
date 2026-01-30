@@ -1,17 +1,7 @@
 pipeline {
     agent any
 
-    triggers {
-        githubPush()
-    }
-
     stages {
-
-        stage('GitHub Integration') {
-            steps {
-                echo 'Code fetched from GitHub Repository'
-            }
-        }
 
         stage('Checkout Code') {
             steps {
@@ -36,7 +26,7 @@ pipeline {
             }
         }
 
-        stage('Push to DockerHub') {
+        stage('Login to DockerHub & Push Image') {
             steps {
                 withCredentials([usernamePassword(
                     credentialsId: 'dockerhub-creds',
@@ -68,12 +58,13 @@ pipeline {
     }
 
     post {
+
         success {
-            echo 'Pipeline Completed Successfully'
+            echo '✅ CI/CD Pipeline completed successfully 🎉'
         }
 
         failure {
-            echo 'Pipeline Failed'
+            echo '❌ Pipeline failed. Check logs 🚨'
         }
     }
 }
