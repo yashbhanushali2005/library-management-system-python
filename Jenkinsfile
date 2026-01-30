@@ -1,6 +1,15 @@
 pipeline {
     agent any
 
+   stage('Verify Python') {
+    steps {
+        bat '''
+        where python
+        python --version
+        pip --version
+        '''
+    }
+}
     stages {
 
         stage('Checkout Code') {
