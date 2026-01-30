@@ -1,6 +1,12 @@
 pipeline {
     agent any
 
+    environment {
+        DOCKERHUB_CREDS = 'dockerhub-creds'
+        IMAGE_NAME = 'yashbhanu2005/library-ms'
+        IMAGE_TAG = '1.0'
+    }
+
     stages {
 
         stage('Checkout Code') {
@@ -9,15 +15,9 @@ pipeline {
             }
         }
 
-        stage('Install Dependencies & Test') {
-            steps {
-                echo 'Skipping local pip install – handled inside Docker'
-            }
-        }
-
         stage('Build Docker Image') {
             steps {
-                bat 'docker build -t library-ms:1.0 .'
+                bat "docker build -t %IMAGE_NAME%:%IMAGE_TAG% ."
             }
         }
 
@@ -27,18 +27,38 @@ pipeline {
                 docker run --rm ^
                   -v //var/run/docker.sock:/var/run/docker.sock ^
                   aquasec/trivy:latest ^
-                  image --severity HIGH,CRITICAL library-ms:1.0
+                  image --severity HIGH,CRITICAL %IMAGE_NAME%:%IMAGE_TAG%
                 '''
+            }
+        }
+
+        stage('Login to DockerHub') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub-creds',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    bat '''
+                    echo %DOCKER_PASS% | docker login -u %DOCKER_USER% --password-stdin
+                    '''
+                }
+            }
+        }
+
+        stage('Push to DockerHub') {
+            steps {
+                bat "docker push %IMAGE_NAME%:%IMAGE_TAG%"
             }
         }
     }
 
     post {
         success {
-            echo 'Pipeline completed successfully 🎉'
+            echo 'Pipeline completed & pushed to DockerHub 🎉'
         }
         failure {
-            echo 'Pipeline failed due to security or test issues 🚨'
+            echo 'Pipeline failed 🚨'
         }
     }
 }
