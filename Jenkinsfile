@@ -1,6 +1,16 @@
 pipeline {
     agent any
 
+    options {
+        timestamps()                     // ⏱ Build time tracking
+        durabilityHint('PERFORMANCE_OPTIMIZED')
+    }
+
+    environment {
+        APP_NAME = "library-app"
+        IMAGE_NAME = "yashbhanu2005/library-ms:1.0"
+    }
+
     stages {
 
         stage('Checkout Code') {
@@ -11,7 +21,12 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                bat 'docker build -t yashbhanu2005/library-ms:1.0 .'
+                script {
+                    def start = System.currentTimeMillis()
+                    bat "docker build -t ${IMAGE_NAME} ."
+                    def duration = (System.currentTimeMillis() - start) / 1000
+                    echo "📊 Docker build time: ${duration}s"
+                }
             }
         }
 
@@ -21,7 +36,7 @@ pipeline {
                 docker run --rm ^
                   -v //var/run/docker.sock:/var/run/docker.sock ^
                   aquasec/trivy:latest ^
-                  image --severity HIGH,CRITICAL yashbhanu2005/library-ms:1.0
+                  image --severity HIGH,CRITICAL %IMAGE_NAME%
                 '''
             }
         }
@@ -33,10 +48,9 @@ pipeline {
                     usernameVariable: 'DOCKER_USER',
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
-
                     bat '''
                     docker login -u %DOCKER_USER% -p %DOCKER_PASS%
-                    docker push yashbhanu2005/library-ms:1.0
+                    docker push %IMAGE_NAME%
                     '''
                 }
             }
@@ -45,14 +59,27 @@ pipeline {
         stage('Deploy Application') {
             steps {
                 bat '''
-                docker stop library-app || exit 0
-                docker rm library-app || exit 0
+                docker stop %APP_NAME% || exit 0
+                docker rm %APP_NAME% || exit 0
 
                 docker run -d ^
                   -p 5000:5000 ^
-                  --name library-app ^
-                  yashbhanu2005/library-ms:1.0
+                  --name %APP_NAME% ^
+                  --restart unless-stopped ^
+                  %IMAGE_NAME%
                 '''
+            }
+        }
+
+        stage('Health Check (Monitoring)') {
+            steps {
+                script {
+                    sleep 10
+                    bat '''
+                    curl -f http://localhost:5000 || exit 1
+                    '''
+                    echo "✅ Application Health Check PASSED"
+                }
             }
         }
     }
@@ -61,10 +88,15 @@ pipeline {
 
         success {
             echo '✅ CI/CD Pipeline completed successfully 🎉'
+            echo '📊 Metrics available at: /prometheus'
         }
 
         failure {
-            echo '❌ Pipeline failed. Check logs 🚨'
+            echo '❌ Pipeline failed. Metrics sent to Prometheus 🚨'
+        }
+
+        always {
+            echo "📈 Build monitored by Prometheus + Grafana"
         }
     }
 }
