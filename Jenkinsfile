@@ -1,12 +1,6 @@
 pipeline {
     agent any
 
-    environment {
-        DOCKERHUB_CREDS = 'dockerhub-creds'
-        IMAGE_NAME = 'yashbhanu2005/library-ms'
-        IMAGE_TAG = '1.0'
-    }
-
     stages {
 
         stage('Checkout Code') {
@@ -17,7 +11,7 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                bat "docker build -t %IMAGE_NAME%:%IMAGE_TAG% ."
+                bat 'docker build -t yashbhanu2005/library-ms:1.0 .'
             }
         }
 
@@ -27,38 +21,50 @@ pipeline {
                 docker run --rm ^
                   -v //var/run/docker.sock:/var/run/docker.sock ^
                   aquasec/trivy:latest ^
-                  image --severity HIGH,CRITICAL %IMAGE_NAME%:%IMAGE_TAG%
+                  image --severity HIGH,CRITICAL yashbhanu2005/library-ms:1.0
                 '''
             }
         }
 
-        stage('Login to DockerHub') {
+        stage('Login to DockerHub & Push Image') {
             steps {
                 withCredentials([usernamePassword(
                     credentialsId: 'dockerhub-creds',
                     usernameVariable: 'DOCKER_USER',
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
+
                     bat '''
-                    echo %DOCKER_PASS% | docker login -u %DOCKER_USER% --password-stdin
+                    docker login -u %DOCKER_USER% -p %DOCKER_PASS%
+                    docker push yashbhanu2005/library-ms:1.0
                     '''
                 }
             }
         }
 
-        stage('Push to DockerHub') {
+        stage('Deploy Application') {
             steps {
-                bat "docker push %IMAGE_NAME%:%IMAGE_TAG%"
+                bat '''
+                docker stop library-app || exit 0
+                docker rm library-app || exit 0
+
+                docker run -d ^
+                  -p 5000:5000 ^
+                  --name library-app ^
+                  yashbhanu2005/library-ms:1.0
+                '''
             }
         }
     }
 
     post {
+
         success {
-            echo 'Pipeline completed & pushed to DockerHub 🎉'
+            echo '✅ CI/CD Pipeline completed successfully 🎉'
         }
+
         failure {
-            echo 'Pipeline failed 🚨'
+            echo '❌ Pipeline failed. Check logs 🚨'
         }
     }
 }
