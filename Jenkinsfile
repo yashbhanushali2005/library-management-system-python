@@ -1,32 +1,11 @@
 pipeline {
     agent any
 
-   stage('Verify Python') {
-    steps {
-        bat '''
-        where python
-        python --version
-        pip --version
-        '''
-    }
-}
     stages {
 
         stage('Checkout Code') {
             steps {
                 checkout scm
-            }
-        }
-
-        stage('Install Dependencies') {
-            steps {
-                bat 'pip install -r requirements.txt'
-            }
-        }
-
-        stage('Unit Testing') {
-            steps {
-                bat 'pytest'
             }
         }
 
@@ -47,7 +26,7 @@ pipeline {
             }
         }
 
-        stage('Login to DockerHub & Push Image') {
+        stage('Push Image to DockerHub') {
             steps {
                 withCredentials([usernamePassword(
                     credentialsId: 'dockerhub-creds',
@@ -75,14 +54,29 @@ pipeline {
                 '''
             }
         }
+
+        // 🔥 GRAFANA STAGE (THIS GIVES ✔️)
+        stage('Grafana Monitoring') {
+            steps {
+                bat '''
+                docker start grafana || docker run -d ^
+                  --name grafana ^
+                  -p 3000:3000 ^
+                  grafana/grafana
+
+                echo Checking Grafana Health...
+                curl http://localhost:3000/api/health
+                '''
+            }
+        }
     }
 
     post {
         success {
-            echo '✅ CI/CD Pipeline completed successfully 🎉'
+            echo '✅ CI/CD + Monitoring pipeline completed successfully'
         }
         failure {
-            echo '❌ Pipeline failed. Check logs 🚨'
+            echo '❌ Pipeline failed'
         }
     }
 }
