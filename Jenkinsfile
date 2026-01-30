@@ -1,16 +1,6 @@
 pipeline {
     agent any
 
-    options {
-        timestamps()
-        durabilityHint('PERFORMANCE_OPTIMIZED')
-    }
-
-    environment {
-        APP_NAME = "library-app"
-        IMAGE_NAME = "yashbhanu2005/library-ms:1.0"
-    }
-
     stages {
 
         stage('Checkout Code') {
@@ -21,7 +11,7 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                bat "docker build -t %IMAGE_NAME% ."
+                bat 'docker build -t yashbhanu2005/library-ms:1.0 .'
             }
         }
 
@@ -31,12 +21,12 @@ pipeline {
                 docker run --rm ^
                   -v //var/run/docker.sock:/var/run/docker.sock ^
                   aquasec/trivy:latest ^
-                  image --severity HIGH,CRITICAL %IMAGE_NAME%
+                  image --severity HIGH,CRITICAL yashbhanu2005/library-ms:1.0
                 '''
             }
         }
 
-        stage('Login to DockerHub & Push Image') {
+        stage('Push Image to DockerHub') {
             steps {
                 withCredentials([usernamePassword(
                     credentialsId: 'dockerhub-creds',
@@ -45,39 +35,48 @@ pipeline {
                 )]) {
                     bat '''
                     docker login -u %DOCKER_USER% -p %DOCKER_PASS%
-                    docker push %IMAGE_NAME%
+                    docker push yashbhanu2005/library-ms:1.0
                     '''
                 }
             }
         }
 
-        stage('Deploy Application (Docker Monitoring)') {
+        stage('Deploy Application') {
             steps {
                 bat '''
-                docker stop %APP_NAME% || exit 0
-                docker rm %APP_NAME% || exit 0
+                docker stop library-app || exit 0
+                docker rm library-app || exit 0
 
                 docker run -d ^
-                  --restart unless-stopped ^
-                  --name %APP_NAME% ^
-                  %IMAGE_NAME%
+                  -p 5000:5000 ^
+                  --name library-app ^
+                  yashbhanu2005/library-ms:1.0
+                '''
+            }
+        }
 
-                docker ps | findstr %APP_NAME%
+        // 🔥 GRAFANA STAGE (THIS GIVES ✔️)
+        stage('Grafana Monitoring') {
+            steps {
+                bat '''
+                docker start grafana || docker run -d ^
+                  --name grafana ^
+                  -p 3000:3000 ^
+                  grafana/grafana
+
+                echo Checking Grafana Health...
+                curl http://localhost:3000/api/health
                 '''
             }
         }
     }
 
     post {
-
         success {
-            echo '✅ CI/CD Pipeline completed successfully 🎉'
-            echo '📊 Jenkins metrics scraped by Prometheus'
-            echo '📈 Visualized in Grafana'
+            echo '✅ CI/CD + Monitoring pipeline completed successfully'
         }
-
         failure {
-            echo '❌ Pipeline failed. Metrics still available in Grafana 🚨'
+            echo '❌ Pipeline failed'
         }
     }
 }
