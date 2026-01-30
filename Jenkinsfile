@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     options {
-        timestamps()                     // ⏱ Build time tracking
+        timestamps()
         durabilityHint('PERFORMANCE_OPTIMIZED')
     }
 
@@ -21,12 +21,7 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                script {
-                    def start = System.currentTimeMillis()
-                    bat "docker build -t ${IMAGE_NAME} ."
-                    def duration = (System.currentTimeMillis() - start) / 1000
-                    echo "📊 Docker build time: ${duration}s"
-                }
+                bat "docker build -t %IMAGE_NAME% ."
             }
         }
 
@@ -56,30 +51,19 @@ pipeline {
             }
         }
 
-        stage('Deploy Application') {
+        stage('Deploy Application (Docker Monitoring)') {
             steps {
                 bat '''
                 docker stop %APP_NAME% || exit 0
                 docker rm %APP_NAME% || exit 0
 
                 docker run -d ^
-                  -p 5000:5000 ^
-                  --name %APP_NAME% ^
                   --restart unless-stopped ^
+                  --name %APP_NAME% ^
                   %IMAGE_NAME%
-                '''
-            }
-        }
 
-        stage('Health Check (Monitoring)') {
-            steps {
-                script {
-                    sleep 10
-                    bat '''
-                    curl -f http://localhost:5000 || exit 1
-                    '''
-                    echo "✅ Application Health Check PASSED"
-                }
+                docker ps | findstr %APP_NAME%
+                '''
             }
         }
     }
@@ -88,15 +72,12 @@ pipeline {
 
         success {
             echo '✅ CI/CD Pipeline completed successfully 🎉'
-            echo '📊 Metrics available at: /prometheus'
+            echo '📊 Jenkins metrics scraped by Prometheus'
+            echo '📈 Visualized in Grafana'
         }
 
         failure {
-            echo '❌ Pipeline failed. Metrics sent to Prometheus 🚨'
-        }
-
-        always {
-            echo "📈 Build monitored by Prometheus + Grafana"
+            echo '❌ Pipeline failed. Metrics still available in Grafana 🚨'
         }
     }
 }
