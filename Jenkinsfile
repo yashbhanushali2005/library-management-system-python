@@ -9,6 +9,18 @@ pipeline {
             }
         }
 
+        stage('Install Dependencies') {
+            steps {
+                bat 'pip install -r requirements.txt'
+            }
+        }
+
+        stage('Unit Testing') {
+            steps {
+                bat 'pytest'
+            }
+        }
+
         stage('Build Docker Image') {
             steps {
                 bat 'docker build -t yashbhanu2005/library-ms:1.0 .'
@@ -26,7 +38,7 @@ pipeline {
             }
         }
 
-        stage('Push Image to DockerHub') {
+        stage('Login to DockerHub & Push Image') {
             steps {
                 withCredentials([usernamePassword(
                     credentialsId: 'dockerhub-creds',
@@ -54,29 +66,14 @@ pipeline {
                 '''
             }
         }
-
-        // 🔥 GRAFANA STAGE (THIS GIVES ✔️)
-        stage('Grafana Monitoring') {
-            steps {
-                bat '''
-                docker start grafana || docker run -d ^
-                  --name grafana ^
-                  -p 3000:3000 ^
-                  grafana/grafana
-
-                echo Checking Grafana Health...
-                curl http://localhost:3000/api/health
-                '''
-            }
-        }
     }
 
     post {
         success {
-            echo '✅ CI/CD + Monitoring pipeline completed successfully'
+            echo '✅ CI/CD Pipeline completed successfully 🎉'
         }
         failure {
-            echo '❌ Pipeline failed'
+            echo '❌ Pipeline failed. Check logs 🚨'
         }
     }
 }
